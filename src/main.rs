@@ -1,4 +1,6 @@
 use std::fs::File;
+use std::path::Path;
+use std::io;
 use directories::UserDirs;
 use clap::{arg, Parser, Subcommand};
 use serde::{Deserialize, Serialize};
@@ -29,17 +31,24 @@ struct Config {
     templates_path: String,
 }
 
-fn get_config() -> Option<Config> {
+fn get_config_path() -> Option<String> {
     let home_dir = UserDirs::new()?
         .home_dir()
         .to_path_buf();
 
-    let file_path = match home_dir.to_str() {
+    match home_dir.to_str() {
+        None => None,
+        Some(p) => Some(p.to_string() + "/" + CONFIG_FILE_NAME),
+    }
+}
+
+fn get_config() -> Option<Config> {
+    let config_path = match get_config_path() {
         None => return None,
-        Some(_) => home_dir.to_str().unwrap().to_string() + "/" + CONFIG_FILE_NAME,
+        Some(p) => p,
     };
 
-    let file = match File::open(file_path).ok() {
+    let file = match File::open(config_path).ok() {
         None => return None,
         Some(f) => f,
     };
@@ -51,14 +60,9 @@ fn get_config() -> Option<Config> {
 }
 
 fn write_config(config: &Config) -> bool {
-    let home_dir = match UserDirs::new() {
+    let file_path = match get_config_path() {
         None => return false,
-        Some(d) => d.home_dir().to_path_buf(),
-    };
-
-    let file_path = match home_dir.to_str() {
-        None => return false,
-        Some(p) => p.to_string() + "/" + CONFIG_FILE_NAME,
+        Some(p) => p,
     };
 
     let file = match File::create(file_path).ok() {
@@ -69,6 +73,20 @@ fn write_config(config: &Config) -> bool {
     match serde_yaml::to_writer(file, config).ok() {
         None => false,
         Some(_) => true,
+    }
+}
+
+#[cfg(unix)]
+fn create_symlink<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
+    std::os::unix::fs::symlink(src, dst)
+}
+
+#[cfg(windows)]
+fn create_symlink<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> io::Result<()> {
+    if src.as_ref().is_dir() {
+        std::os::windows::fs::symlink_dir(src, dst)
+    } else {
+        std::os::windows::fs::symlink_file(src, dst)
     }
 }
 
@@ -116,9 +134,41 @@ fn main() {
             }
             std::process::exit(0);
         }
-        _ => {
-            eprintln!("ERROR: Command not implemented yet.");
-            std::process::exit(1);
+        Command::Add { mut template_name }=> {
+            let config = match get_config() {
+                None => {
+                    eprintln!("ERROR: Config file does not exist. Use `typst-templatr init --templates_path <path>` to create it.");
+                    std::process::exit(1);
+                }
+                Some(config) => config,
+            };
+
+            if !template_name.ends_with(".typ") {
+                template_name.push_str(".typ");
+            }
+
+            let src_path = Path::new(&config.templates_path).join(&template_name);
+            let dst_path = Path::new(".").join(&template_name);
+            if !src_path.exists() {
+                eprintln!("ERROR: Template '{}' does not exist in templates path.", template_name);
+                std::process::exit(1);
+            }
+
+            if dst_path.exists() {
+                eprintln!("ERROR: A file or directory named '{}' already exists in the current directory.", template_name);
+                std::process::exit(1);
+            }
+
+            match create_symlink(&src_path, &dst_path) {
+                Ok(_) => {
+                    println!("Template '{}' added successfully.", template_name);
+                    std::process::exit(0);
+                }
+                Err(e) => {
+                    eprintln!("ERROR: Failed to create symlink: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }
     }
 }
