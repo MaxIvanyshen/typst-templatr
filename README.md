@@ -1,12 +1,15 @@
 # typst-templatr
 
-A command-line tool written in Rust to manage Typst templates. It allows you to initialize a configuration file, list available `.typ` templates, and add templates to your current directory via symbolic links.
+A command-line tool written in Rust to manage Typst templates. It allows you to initialize a configuration file, list available `.typ` templates, and manage templates by adding, removing, installing, or uninstalling them via symbolic links or file operations.
 
 ## Features
 
 - **Initialize Configuration**: Create a configuration file (`.typst-templatr.yaml`) to specify the path to your Typst templates directory.
 - **List Templates**: Display all `.typ` files in the configured templates directory.
 - **Add Templates**: Create a symbolic link to a `.typ` template file from the templates directory to the current working directory.
+- **Remove Templates**: Remove a symbolic link to a `.typ` template from the current working directory.
+- **Install Templates**: Copy a `.typ` template file to the configured templates directory.
+- **Uninstall Templates**: Remove a `.typ` template file from the configured templates directory.
 
 ## Installation
 
@@ -55,7 +58,7 @@ A command-line tool written in Rust to manage Typst templates. It allows you to 
 
 ## Usage
 
-The tool supports three subcommands: `init`, `list`, and `add`. You can use either `typst-templatr` or `tt` as the command.
+The tool supports six subcommands: `init`, `list`, `add`, `remove`, `install`, and `uninstall`. You can use either `typst-templatr` or `tt` as the command. Run `typst-templatr --help` or `tt --help` for an overview, or `<command> --help` for subcommand-specific help.
 
 ### Initialize Configuration
 
@@ -69,7 +72,7 @@ or
 tt init --templates_path ~/.typst-templates
 ```
 
-- `--templates_path`: Path to the directory containing your `.typ` template files (defaults to `~/.typst-templates`).
+- `--templates_path`: Path to the directory where Typst templates will be stored (defaults to `~/.typst-templates`).
 - Creates a `.typst-templatr.yaml` file in your home directory.
 
 ### List Templates
@@ -98,9 +101,57 @@ or
 tt add template_name
 ```
 
-- `template_name`: The name of the template file (with or without the `.typ` extension).
+- `template_name`: Name of the template file (with or without `.typ` extension).
 - Creates a symlink in the current directory pointing to the template file in the templates directory.
 - Example: `tt add mytemplate` links `~/.typst-templates/mytemplate.typ` to `./mytemplate.typ`.
+
+### Remove a Template
+
+Remove a symbolic link to a `.typ` template from the current working directory.
+
+```bash
+typst-templatr remove template_name
+```
+or
+```bash
+tt remove template_name
+```
+
+- `template_name`: Name of the template file to remove (with or without `.typ` extension).
+- Removes the symlink from the current directory.
+- Example: `tt remove mytemplate` removes `./mytemplate.typ`.
+
+### Install a Template
+
+Copy a `.typ` template file to the configured templates directory.
+
+```bash
+typst-templatr install path/to/template.typ
+```
+or
+```bash
+tt install path/to/template.typ
+```
+
+- `template_path`: Path to the `.typ` template file to install (with or without `.typ` extension).
+- Copies the file to the templates directory specified in the config.
+- Example: `tt install ./test.typ` copies `test.typ` to `~/.typst-templates/test.typ`.
+
+### Uninstall a Template
+
+Remove a `.typ` template file from the configured templates directory.
+
+```bash
+typst-templatr uninstall template_name
+```
+or
+```bash
+tt uninstall template_name
+```
+
+- `template_name`: Name of the template file to uninstall (with or without `.typ` extension).
+- Removes the file from the templates directory.
+- Example: `tt uninstall mytemplate` removes `~/.typst-templates/mytemplate.typ`.
 
 ### Example Workflow
 
@@ -109,21 +160,35 @@ tt add template_name
    tt init --templates_path ~/my_templates
    ```
 
-2. List available templates:
+2. Install a template:
+   ```bash
+   tt install ./test.typ
+   ```
+
+3. List available templates:
    ```bash
    tt list
    ```
    Output:
    ```
+   - test.typ
    - report.typ
-   - article.typ
    ```
 
-3. Add a template to the current directory:
+4. Add a template to the current directory:
    ```bash
-   tt add report
+   tt add test
    ```
-   This creates a symlink `./report.typ` pointing to `~/my_templates/report.typ`.
+
+5. Remove the template symlink:
+   ```bash
+   tt remove test
+   ```
+
+6. Uninstall the template:
+   ```bash
+   tt uninstall test
+   ```
 
 ## Configuration File
 
@@ -137,7 +202,10 @@ templates_path: ~/.typst-templates
 
 - If the configuration file is missing, use `init` to create it.
 - If the templates directory doesn't exist or is inaccessible, an error will be displayed.
-- If a template file doesn't exist when using `add`, or if a file with the same name already exists in the current directory, an error will be shown.
+- For `add`, if the template doesn't exist in the templates directory or a file with the same name exists in the current directory, an error will be shown.
+- For `remove`, if the template symlink doesn't exist in the current directory, an error will be shown.
+- For `install`, if the source file doesn't exist, an error will be shown.
+- For `uninstall`, if the template doesn't exist in the templates directory, an error will be shown.
 
 ## Dependencies
 
