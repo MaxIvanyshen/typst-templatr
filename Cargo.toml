@@ -1,0 +1,10 @@
+[package]
+name = "typst-templatr"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.46", features = ["derive"] }
+directories = "6.0.0"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_yaml = "0.9.34"
